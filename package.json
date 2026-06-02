@@ -1,0 +1,18 @@
+{
+  "name": "configuracion-pipeline-ci-github-actions",
+  "version": "1.0.0",
+  "description": "Proyecto Node.js minimo para implementar un pipeline CI con GitHub Actions.",
+  "type": "module",
+  "scripts": {
+    "lint": "node scripts/lint.js",
+    "test": "node tests/sum.test.js",
+    "build": "node scripts/build.js"
+  },
+  "keywords": [
+    "nodejs",
+    "github-actions",
+    "ci"
+  ],
+  "author": "",
+  "license": "MIT"
+}
