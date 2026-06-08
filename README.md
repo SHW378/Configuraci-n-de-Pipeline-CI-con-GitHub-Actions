@@ -1,6 +1,6 @@
 # Configuracion de Pipeline CI con GitHub Actions
 
-![CI Status](https://github.com/SHW378/Configuraci-n-de-Pipeline-CI-con-GitHub-Actions/actions/workflows/ci.yml/badge.svg?branch=develop)
+![CI Status](https://github.com/shw-2/Configuraci-n-de-Pipeline-CI-con-GitHub-Actions/actions/workflows/ci.yml/badge.svg?branch=develop)
 
 Proyecto Node.js minimo para demostrar la implementacion de integracion continua con GitHub Actions.
 
