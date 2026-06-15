@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Librería Digital Resiliente MVP</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        background: '#0d1117',
+                        foreground: '#e8eaf0',
+                        card: '#161b22',
+                        'card-foreground': '#e8eaf0',
+                        primary: '#4a9eff',
+                        'primary-foreground': '#0d1117',
+                        muted: '#1e2535',
+                        'muted-foreground': '#8b95a8',
+                        border: 'rgba(255,255,255,0.08)',
+                        ring: '#4a9eff',
+                        available: '#22c55e',
+                        unavailable: '#f97316',
+                        offline: '#facc15',
+                        destructive: '#ff4d4d'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['"DM Sans"', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #0d1117; color: #e8eaf0; line-height: 1.5; font-size: 16px; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .pantalla-activa { display: block; }
+        .pantalla-oculta { display: none; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans antialiased selection:bg-primary/30">
+
+    <header class="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border h-14">
+        <div class="max-w-2xl mx-auto h-full px-4 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <div class="w-7 h-7 bg-primary rounded flex items-center justify-center">
+                    <i data-lucide="book-open" class="w-4 h-4 text-primary-foreground"></i>
+                </div>
+                <span class="font-display font-semibold text-foreground">LibroRed</span>
+            </div>
+            <nav class="hidden sm:flex gap-1" aria-label="Navegación principal">
+                <button id="btn-nav-catalogo" onclick="cambiarPantalla('p-catalogo', this)" class="nav-btn flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm bg-primary text-primary-foreground font-medium" aria-current="page">
+                    <i data-lucide="book-open" class="w-4 h-4"></i> Catálogo
+                </button>
+                <button id="btn-nav-offline" onclick="cambiarPantalla('p-offline', this)" class="nav-btn flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted font-medium transition-colors">
+                    <i data-lucide="wifi-off" class="w-4 h-4"></i> Sin conexión
+                </button>
+                <button id="btn-nav-reporte" onclick="cambiarPantalla('p-reporte', this)" class="nav-btn flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted font-medium transition-colors">
+                    <i data-lucide="file-text" class="w-4 h-4"></i> Generar PDF
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <div class="w-full bg-[#4a9eff10] border-b border-[#4a9eff26] py-1">
+        <p class="text-center text-xs text-primary font-medium" id="demo-indicator">Demo MVP · Pantalla activa: Catálogo de Recursos</p>
+    </div>
+
+    <main class="max-w-2xl mx-auto w-full px-4 pt-5 pb-24 relative flex-grow">
+
+        <section id="p-catalogo" class="pantalla-activa" aria-label="Catálogo de Recursos">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h1 class="font-display font-medium text-2xl">Catálogo</h1>
+                    <p class="text-sm text-muted-foreground" id="contador-resultados">Cargando...</p>
+                </div>
+                <div class="bg-[rgba(34,197,94,0.1)] text-available text-xs px-2.5 py-1 rounded-full border border-[rgba(34,197,94,0.2)] flex items-center gap-1.5" role="status" aria-label="Conectado — catálogo actualizado">
+                    <i data-lucide="wifi" class="w-3 h-3"></i> En línea
+                </div>
+            </div>
+
+            <div class="relative mb-4">
+                <i data-lucide="search" class="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                <input type="search" id="input-busqueda" placeholder="Buscar por título o autor..." class="w-full bg-card border border-border rounded-lg pl-9 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-ring focus:outline-none placeholder:text-muted-foreground" aria-label="Buscar recursos en el catálogo">
+            </div>
+
+            <div class="flex gap-2 overflow-x-auto pb-1 mb-5 scrollbar-hide" role="group" aria-label="Filtrar por materia" id="contenedor-filtros"></div>
+
+            <ul id="lista-catalogo" class="space-y-3" role="list" aria-label="Lista de recursos"></ul>
+
+            <div id="estado-vacio" class="hidden py-12 text-center" role="status">
+                <p class="text-muted-foreground mb-3">No encontramos resultados para "<span id="termino-buscado" class="font-medium text-foreground"></span>"</p>
+                <button onclick="limpiarBusqueda()" class="text-primary text-sm hover:underline">Limpiar búsqueda</button>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-border">
+                <p class="text-xs text-muted-foreground mb-3">Leyenda de disponibilidad</p>
+                <div class="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                    <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-available"></span> Disponible para descargar</div>
+                    <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-unavailable"></span> Prestado actualmente</div>
+                    <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-offline"></span> Puedes reservar lugar</div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-offline" class="pantalla-oculta" aria-label="Estado Sin Conexión">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="font-display font-medium text-2xl">Catálogo</h1>
+                <div class="bg-[rgba(250,204,21,0.1)] text-offline text-xs px-2.5 py-1 rounded-full border border-[rgba(250,204,21,0.2)] flex items-center gap-1.5" role="status">
+                    <i data-lucide="wifi-off" class="w-3 h-3"></i> Sin conexión
+                </div>
+            </div>
+
+            <div role="alert" aria-live="assertive" aria-atomic="true" class="bg-[rgba(250,204,21,0.1)] border border-[rgba(250,204,21,0.25)] rounded-lg px-4 py-3 flex items-center justify-between mb-5">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="wifi-off" class="w-4 h-4 text-offline flex-shrink-0"></i>
+                    <p class="text-sm"><span class="font-medium text-foreground">Sin conexión</span><span class="text-muted-foreground"> · reintentando...</span></p>
+                </div>
+                <button class="text-muted-foreground hover:text-foreground opacity-50" disabled>
+                    <i data-lucide="refresh-cw" class="w-4 h-4 animate-spin"></i>
+                </button>
+            </div>
+
+            <div class="border border-[rgba(250,204,21,0.2)] rounded-xl overflow-hidden mb-8">
+                <div class="bg-[rgba(250,204,21,0.05)] px-4 py-2 border-b border-[rgba(250,204,21,0.2)] flex items-center gap-2">
+                    <i data-lucide="wifi-off" class="w-3 h-3 text-offline"></i>
+                    <span class="text-xs text-offline font-medium">Estado: LANG-05 — Resiliencia ante pérdida de red</span>
+                </div>
+                <div class="p-6 text-center" role="status" aria-live="polite">
+                    <div class="w-16 h-16 rounded-full bg-[rgba(250,204,21,0.1)] mx-auto flex items-center justify-center mb-4">
+                        <i data-lucide="wifi-off" class="w-7 h-7 text-offline"></i>
+                    </div>
+                    <h2 class="font-display font-medium text-xl mb-2">Sin conexión, reintentando</h2>
+                    <p class="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed mb-5">No se pudo cargar el catálogo. Tus materiales descargados siguen disponibles sin internet.</p>
+                    <button class="bg-primary text-primary-foreground font-medium rounded-lg px-5 py-2.5 inline-flex items-center gap-2 opacity-50 cursor-not-allowed" disabled>
+                        <i data-lucide="refresh-cw" class="w-4 h-4 animate-spin"></i> Reconectando...
+                    </button>
+                </div>
+            </div>
+
+            <div>
+                <h2 class="flex items-center gap-2 text-sm font-medium text-foreground mb-3">
+                    <i data-lucide="download" class="w-4 h-4 text-muted-foreground"></i> Tus descargas (sin internet)
+                </h2>
+                <ul id="lista-descargas-offline" class="space-y-2"></ul>
+            </div>
+        </section>
+
+        <section id="p-reporte" class="pantalla-oculta" aria-label="Generación Asíncrona de PDF">
+            <div class="mb-6">
+                <h1 class="font-display font-medium text-2xl">Mi Reporte</h1>
+                <p class="text-sm text-muted-foreground">Semestre 2024-1</p>
+            </div>
+
+            <div class="bg-card border border-border rounded-xl p-5 mb-5">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary font-display font-semibold text-lg">MA</div>
+                    <div>
+                        <h2 class="font-display font-semibold text-foreground">María Alejandra García</h2>
+                        <p class="text-sm text-muted-foreground">Ingeniería de Sistemas · Sem. 5</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-3 mt-5 pt-4 border-t border-border text-center">
+                    <div>
+                        <p class="font-display font-bold text-primary text-2xl">12</p>
+                        <p class="text-xs text-muted-foreground mt-0.5">Libros leídos</p>
+                    </div>
+                    <div>
+                        <p class="font-display font-bold text-primary text-2xl">87</p>
+                        <p class="text-xs text-muted-foreground mt-0.5">Horas estudio</p>
+                    </div>
+                    <div>
+                        <p class="font-display font-bold text-primary text-2xl">6</p>
+                        <p class="text-xs text-muted-foreground mt-0.5">Materias</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-card border border-border rounded-xl p-5">
+                <div class="flex justify-between items-start gap-4">
+                    <div>
+                        <h2 class="font-display font-medium text-foreground mb-1">Reporte completo PDF</h2>
+                        <p class="text-sm text-muted-foreground leading-relaxed">Incluye historial de lecturas, calificaciones y actividad. El archivo se genera en nuestros servidores.</p>
+                    </div>
+                    <i data-lucide="file-text" class="w-5 h-5 text-muted-foreground flex-shrink-0"></i>
+                </div>
+                <div class="mt-4 flex flex-wrap items-center gap-3">
+                    <button onclick="lanzarProceso('reporte', 'Reporte_Academico_2026.pdf')" class="flex items-center gap-2 bg-primary text-primary-foreground font-medium rounded-lg px-4 py-2.5 text-sm hover:opacity-90">
+                        <i data-lucide="file-text" class="w-4 h-4"></i> Generar reporte
+                    </button>
+                </div>
+                <p class="text-xs text-muted-foreground mt-3 flex items-center gap-1.5">
+                    <i data-lucide="info" class="w-3.5 h-3.5"></i> La pantalla no se bloquea mientras se genera el archivo
+                </p>
+            </div>
+
+            <div class="mt-8">
+                <h2 class="flex items-center gap-2 text-sm font-medium text-foreground mb-3 border-b border-border pb-2">
+                    <i data-lucide="clock" class="w-4 h-4 text-muted-foreground"></i> Historial de Reportes
+                </h2>
+                <ul id="lista-reportes-generados" class="space-y-2">
+                    </ul>
+            </div>
+        </section>
+    </main>
+
+    <div id="pdf-overlay" class="fixed bottom-0 left-0 right-0 z-50 p-4 transform translate-y-full transition-transform duration-300" aria-hidden="true">
+        <div class="max-w-md mx-auto bg-[#1c2230] border border-border rounded-xl shadow-2xl overflow-hidden relative" role="status">
+            <div class="w-full h-1 bg-muted absolute top-0 left-0">
+                <div id="pdf-progress" class="h-full bg-primary transition-all duration-500 ease-out" style="width: 0%"></div>
+            </div>
+            <div class="p-4 flex items-start gap-3 mt-1">
+                <div id="pdf-icon-bg" class="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[rgba(74,158,255,0.15)]">
+                    <i id="pdf-icon" data-lucide="file-text" class="w-5 h-5 text-primary"></i>
+                </div>
+                <div class="flex-1 min-w-0 pt-0.5">
+                    <p class="font-display text-sm truncate" id="pdf-title"></p>
+                    <p class="text-xs text-muted-foreground mt-0.5" id="pdf-subtitle"></p>
+                </div>
+                <div id="pdf-actions" class="hidden flex-shrink-0"></div>
+                <button onclick="cerrarOverlay()" class="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted ml-2"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const baseDeDatos = [
+            { titulo: "Cálculo Diferencial e Integral", autor: "James Stewart", materia: "Matemáticas", pags: 1168, mb: 18, estado: "disponible", color: "#1e4d8c" },
+            { titulo: "Fundamentos de Programación", autor: "Luis Joyanes Aguilar", materia: "Informática", pags: 752, mb: 9, estado: "disponible", color: "#1a6b4a" },
+            { titulo: "Introducción a la Bioquímica", autor: "Jeremy Berg", materia: "Biología", pags: 1158, mb: 22, estado: "prestado", retorno: "20 jun", color: "#6b3a1a" },
+            { titulo: "Historia Contemporánea de América Latina", autor: "Tulio Halperín Donghi", materia: "Historia", pags: 448, mb: 5, estado: "disponible", color: "#4a1a6b" },
+            { titulo: "Principios de Economía", autor: "Gregory N. Mankiw", materia: "Economía", pags: 848, mb: 12, estado: "reservar", color: "#6b1a2e" },
+            { titulo: "Química General", autor: "Petrucci, Harwood & Herring", materia: "Química", pags: 1104, mb: 16, estado: "disponible", color: "#1a5e6b" }
+        ];
+
+        let descargasOffline = [
+            { titulo: "Fundamentos de Programación", mb: 9, fecha: "10 jun" }
+        ];
+
+        // Arreglo para guardar los reportes que vayamos generando
+        let reportesGenerados = [];
+
+        const materias = ["Todas", "Matemáticas", "Informática", "Biología", "Historia", "Economía", "Química"];
+        let filtroActual = "Todas";
+        let busquedaActual = "";
+
+        // ==========================================
+        // RENDERIZADOS
+        // ==========================================
+
+        function renderizarReportes() {
+            const contenedor = document.getElementById("lista-reportes-generados");
+            if (reportesGenerados.length === 0) {
+                contenedor.innerHTML = `<p class="text-xs text-muted-foreground text-center py-6 bg-[rgba(255,255,255,0.02)] border border-border rounded-lg border-dashed">No se han generado reportes todavía.</p>`;
+                return;
+            }
+            
+            // Los mostramos en orden inverso (los más recientes primero)
+            contenedor.innerHTML = [...reportesGenerados].reverse().map(rep => `
+                <li class="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="file-check" class="w-4 h-4 text-available"></i>
+                        <div>
+                            <p class="text-sm font-medium text-foreground">${rep.nombre}</p>
+                            <p class="text-xs text-muted-foreground">${rep.fecha}</p>
+                        </div>
+                    </div>
+                    <button class="border border-primary text-primary rounded px-2.5 py-1 text-xs font-medium hover:bg-primary/10">Abrir</button>
+                </li>
+            `).join("");
+            lucide.createIcons();
+        }
+
+        function renderizarDescargasOffline() {
+            const contenedor = document.getElementById("lista-descargas-offline");
+            if(descargasOffline.length === 0) {
+                contenedor.innerHTML = `<p class="text-xs text-muted-foreground text-center py-4">No tienes descargas guardadas.</p>`;
+                return;
+            }
+            contenedor.innerHTML = descargasOffline.map(item => `
+                <li class="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="file-text" class="w-4 h-4 text-muted-foreground"></i>
+                        <div>
+                            <p class="text-sm font-medium text-foreground truncate max-w-[200px] sm:max-w-xs">${item.titulo}</p>
+                            <p class="text-xs text-muted-foreground">${item.mb} MB · ${item.fecha}</p>
+                        </div>
+                    </div>
+                    <button class="border border-primary text-primary rounded px-2.5 py-1 text-xs font-medium hover:bg-primary/10">Abrir</button>
+                </li>
+            `).join("");
+            lucide.createIcons();
+        }
+
+        function renderizarFiltros() {
+            const contenedor = document.getElementById("contenedor-filtros");
+            contenedor.innerHTML = materias.map(materia => {
+                const activo = materia === filtroActual;
+                const clasesActivo = "bg-primary text-primary-foreground font-medium";
+                const clasesInactivo = "bg-card border border-border text-muted-foreground hover:text-foreground transition-colors";
+                return `<button onclick="setFiltro('${materia}')" class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs ${activo ? clasesActivo : clasesInactivo}" aria-pressed="${activo}">${materia}</button>`;
+            }).join("");
+        }
+
+        function renderizarCatalogo() {
+            const contenedor = document.getElementById("lista-catalogo");
+            const emptyState = document.getElementById("estado-vacio");
+            const terminoSpan = document.getElementById("termino-buscado");
+            const contador = document.getElementById("contador-resultados");
+
+            const resultados = baseDeDatos.filter(libro => {
+                const coincideMateria = filtroActual === "Todas" || libro.materia === filtroActual;
+                const textoBusqueda = busquedaActual.toLowerCase();
+                const coincideTexto = libro.titulo.toLowerCase().includes(textoBusqueda) || libro.autor.toLowerCase().includes(textoBusqueda);
+                return coincideMateria && coincideTexto;
+            });
+
+            contador.innerText = `${resultados.length} disponible${resultados.length !== 1 ? 's' : ''} ahora`;
+
+            if (resultados.length === 0) {
+                contenedor.innerHTML = "";
+                emptyState.classList.remove("hidden");
+                terminoSpan.innerText = busquedaActual || filtroActual;
+            } else {
+                emptyState.classList.add("hidden");
+                contenedor.innerHTML = resultados.map(libro => {
+                    let badge, accion, infoExtra = "";
+                    const yaDescargado = descargasOffline.some(d => d.titulo === libro.titulo);
+                    
+                    if (libro.estado === "disponible") {
+                        badge = `<span class="rounded-full px-2 py-0.5 text-xs bg-[rgba(34,197,94,0.12)] text-available flex items-center gap-1.5 flex-shrink-0 border border-[rgba(34,197,94,0.2)]"><span class="w-1.5 h-1.5 rounded-full bg-available"></span>Disponible</span>`;
+                        if (yaDescargado) {
+                            accion = `<button class="mt-3 flex items-center gap-1.5 bg-card border border-available text-available rounded px-3 py-1.5 text-sm cursor-default"><i data-lucide="check" class="w-3.5 h-3.5"></i> Descargado</button>`;
+                        } else {
+                            accion = `<button onclick="accionLibro('descargar', '${libro.titulo}')" class="mt-3 flex items-center gap-1.5 bg-primary text-primary-foreground rounded px-3 py-1.5 text-sm hover:opacity-90 transition-opacity"><i data-lucide="download" class="w-3.5 h-3.5"></i> Descargar</button>`;
+                        }
+                    } else if (libro.estado === "prestado") {
+                        badge = `<span class="rounded-full px-2 py-0.5 text-xs bg-[rgba(249,115,22,0.12)] text-unavailable flex items-center gap-1.5 flex-shrink-0 border border-[rgba(249,115,22,0.2)]"><span class="w-1.5 h-1.5 rounded-full bg-unavailable"></span>Prestado</span>`;
+                        infoExtra = `<p class="text-xs text-unavailable mt-1 flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> Disponible el ${libro.retorno}</p>`;
+                        accion = `<button onclick="accionLibro('reservar', '${libro.titulo}')" class="mt-3 bg-muted text-card-foreground rounded px-3 py-1.5 text-sm hover:bg-muted/80 transition-colors">Reservar lugar</button>`;
+                    } else {
+                        badge = `<span class="rounded-full px-2 py-0.5 text-xs bg-[rgba(250,204,21,0.1)] text-offline flex items-center gap-1.5 flex-shrink-0 border border-[rgba(250,204,21,0.2)]"><span class="w-1.5 h-1.5 rounded-full bg-offline"></span>Reservar</span>`;
+                        accion = `<button onclick="accionLibro('reservar', '${libro.titulo}')" class="mt-3 bg-muted text-card-foreground rounded px-3 py-1.5 text-sm hover:bg-muted/80 transition-colors">Reservar lugar</button>`;
+                    }
+
+                    return `
+                    <li>
+                        <article class="bg-card border border-border rounded-lg p-4 flex gap-4 focus-within:ring-2 focus-within:ring-ring">
+                            <div class="w-12 h-16 rounded flex-shrink-0 flex items-center justify-center" style="background-color: ${libro.color}" aria-hidden="true">
+                                <i data-lucide="book-open" class="w-5 h-5 text-white/80"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex justify-between items-start gap-2">
+                                    <div class="truncate">
+                                        <h3 class="font-display font-medium text-foreground truncate">${libro.titulo}</h3>
+                                        <p class="text-sm text-muted-foreground mt-0.5 truncate">${libro.autor}</p>
+                                    </div>
+                                    ${badge}
+                                </div>
+                                <p class="text-xs text-muted-foreground mt-2">${libro.materia} · ${libro.pags} págs. · ${libro.mb} MB</p>
+                                ${infoExtra}
+                                ${accion}
+                            </div>
+                        </article>
+                    </li>`;
+                }).join("");
+            }
+            lucide.createIcons();
+        }
+
+        // ==========================================
+        // INTERACCIONES Y LÓGICA
+        // ==========================================
+
+        function setFiltro(materia) {
+            filtroActual = materia;
+            renderizarFiltros();
+            renderizarCatalogo();
+        }
+
+        document.getElementById("input-busqueda").addEventListener("input", (e) => {
+            busquedaActual = e.target.value;
+            renderizarCatalogo();
+        });
+
+        function limpiarBusqueda() {
+            document.getElementById("input-busqueda").value = "";
+            busquedaActual = "";
+            setFiltro("Todas");
+        }
+
+        function accionLibro(tipo, titulo) {
+            if(tipo === 'descargar') {
+                lanzarProceso('libro', titulo);
+            } else {
+                alert(`🕒 Reservación exitosa: Has apartado tu lugar para "${titulo}".\nTe notificaremos cuando esté disponible.`);
+            }
+        }
+
+        let simInterval;
+        function lanzarProceso(tipo, nombreRecurso) {
+            clearInterval(simInterval);
+            const overlay = document.getElementById('pdf-overlay');
+            const progress = document.getElementById('pdf-progress');
+            const iconBg = document.getElementById('pdf-icon-bg');
+            const title = document.getElementById('pdf-title');
+            const subtitle = document.getElementById('pdf-subtitle');
+            const actions = document.getElementById('pdf-actions');
+            
+            overlay.classList.remove('translate-y-full');
+            progress.className = "h-full bg-primary transition-all duration-500 ease-out";
+            progress.style.width = "0%";
+            iconBg.className = "w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[rgba(74,158,255,0.15)] animate-pulse";
+            
+            if (tipo === 'libro') {
+                iconBg.innerHTML = `<i data-lucide="download-cloud" class="w-5 h-5 text-primary"></i>`;
+                title.innerHTML = `<span class="text-primary font-medium">Descargando</span> <span class="text-muted-foreground">${nombreRecurso}</span>`;
+            } else {
+                iconBg.innerHTML = `<i data-lucide="file-text" class="w-5 h-5 text-primary"></i>`;
+                title.innerHTML = `<span class="text-primary font-medium">Generando</span> <span class="text-muted-foreground">${nombreRecurso}</span>`;
+            }
+
+            actions.classList.add('hidden');
+            lucide.createIcons();
+            
+            let current = 0;
+            simInterval = setInterval(() => {
+                current += 20;
+                if (current >= 100) {
+                    clearInterval(simInterval);
+                    current = 100;
+                    progress.className = "h-full bg-available transition-all duration-500 ease-out";
+                    iconBg.className = "w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[rgba(34,197,94,0.15)]";
+                    iconBg.innerHTML = `<i data-lucide="check-circle" class="w-5 h-5 text-available"></i>`;
+                    
+                    if (tipo === 'libro') {
+                        title.innerHTML = `<span class="text-available font-medium">¡Guardado!</span> <span class="text-foreground">${nombreRecurso}</span>`;
+                        subtitle.innerText = "Libro disponible para lectura offline";
+                        
+                        const libroData = baseDeDatos.find(b => b.titulo === nombreRecurso);
+                        const existe = descargasOffline.some(d => d.titulo === nombreRecurso);
+                        
+                        if (!existe && libroData) {
+                            const fechaStr = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }).replace('.', '');
+                            descargasOffline.push({
+                                titulo: libroData.titulo,
+                                mb: libroData.mb,
+                                fecha: fechaStr
+                            });
+                            renderizarDescargasOffline();
+                            renderizarCatalogo();
+                        }
+
+                    } else {
+                        // Flujo de Generación de Reporte
+                        title.innerHTML = `<span class="text-available font-medium">¡Listo!</span> <span class="text-foreground">${nombreRecurso}</span>`;
+                        subtitle.innerText = "Tu reporte académico está disponible";
+                        actions.innerHTML = `<button onclick="cerrarOverlay()" class="bg-[#22c55e] text-[#0d1117] rounded px-3 py-1.5 text-sm font-medium hover:opacity-90">Abrir</button>`;
+                        actions.classList.remove('hidden');
+                        
+                        // Añadir el nuevo reporte a la lista de Historial
+                        const fechaHoraObj = new Date();
+                        const horaFmt = fechaHoraObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                        
+                        reportesGenerados.push({
+                            nombre: nombreRecurso,
+                            fecha: `Hoy, ${horaFmt}`
+                        });
+                        renderizarReportes();
+                    }
+
+                    iconBg.classList.remove('animate-pulse');
+                    lucide.createIcons();
+                } else {
+                    subtitle.innerText = `${current}% · Puedes seguir usando la app`;
+                }
+                progress.style.width = `${current}%`;
+            }, 600);
+        }
+
+        function cerrarOverlay() {
+            document.getElementById('pdf-overlay').classList.add('translate-y-full');
+            clearInterval(simInterval);
+        }
+
+        function cambiarPantalla(idPantalla, btnIdOrElement) {
+            document.querySelectorAll('.nav-btn').forEach(b => {
+                b.classList.remove('bg-primary', 'text-primary-foreground');
+                b.classList.add('text-muted-foreground', 'hover:bg-muted');
+                b.setAttribute('aria-current', 'false');
+            });
+            
+            const btn = typeof btnIdOrElement === 'string' ? document.getElementById(btnIdOrElement) : btnIdOrElement;
+            if (btn) {
+                btn.classList.remove('text-muted-foreground', 'hover:bg-muted');
+                btn.classList.add('bg-primary', 'text-primary-foreground');
+                btn.setAttribute('aria-current', 'page');
+            }
+
+            document.querySelectorAll('section').forEach(s => s.classList.replace('pantalla-activa', 'pantalla-oculta'));
+            document.getElementById(idPantalla).classList.replace('pantalla-oculta', 'pantalla-activa');
+
+            const titulos = {
+                'p-catalogo': 'Catálogo de Recursos',
+                'p-offline': 'Estado Sin Conexión (LANG-05)',
+                'p-reporte': 'Generación Asíncrona de PDF'
+            };
+            document.getElementById('demo-indicator').innerText = `Demo MVP · Pantalla activa: ${titulos[idPantalla]}`;
+        }
+
+        // Inicialización
+        lucide.createIcons();
+        renderizarFiltros();
+        renderizarCatalogo();
+        renderizarDescargasOffline();
+        renderizarReportes();
+    </script>
+</body>
+</html>
